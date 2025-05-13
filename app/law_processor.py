@@ -543,8 +543,6 @@ def run_amendment_logic(find_word, replace_word):
                         location = f"{조문식별자}"
                         chunk_map[(chunk, replaced, josa, suffix)].append(location)
 
-            # 항 내용 검색 (이하 생략...)
-            # 항, 호, 목 검색 코드는 기존과 동일하게 유지
         # 항 내용 검색
             for 항 in article.findall("항"):
                 항번호 = normalize_number(항.findtext("항번호", "").strip())
@@ -646,7 +644,7 @@ def run_amendment_logic(find_word, replace_word):
         if not chunk_map:
             continue
         
-        # 같은 출력 형식을 가진 항목들을 그룹화
+  # 같은 출력 형식을 가진 항목들을 그룹화
         rule_map = defaultdict(list)
         for (chunk, replaced, josa, suffix), locations in chunk_map.items():
             # 접미사 처리 - "로서"와 같은 특수 접미사 처리
@@ -663,39 +661,45 @@ def run_amendment_logic(find_word, replace_word):
                 
             rule_map[rule].extend(sorted(set(locations)))
         
-        # 그룹화된 항목들을 정렬하여 출력
+ # 그룹화된 항목들을 정렬하여 출력
         consolidated_rules = []
         for rule, locations in rule_map.items():
             # 2개 이상의 위치가 있으면 '각각'을 추가하고 위치를 적절히 집계
             if len(locations) > 1 and "각각" not in rule:
-                # '한다.' 앞에 '각각'을 추가 - 위치 수정!
-                split_idx = rule.rfind(" 한다.")
-                if split_idx > 0:
-                    rule_with_each = f"{rule[:split_idx]} 각각{rule[split_idx:]}"
+                # '각각'을 대체어 앞에 추가 (규칙에 따라 올바른 위치에 삽입)
+                # 예: "A"를 "B"로 한다. -> "A"를 각각 "B"로 한다.
+                match = re.search(r'("[^"]+")(를|을) ("[^"]+")(로|으로) 한다', rule)
+                if match:
+                    orig_word = match.group(1)
+                    article = match.group(2)
+                    repl_word = match.group(3)
+                    suffix = match.group(4)
+                    rule_with_each = f'{orig_word}{article} 각각 {repl_word}{suffix} 한다.'
                     result_line = f"{group_locations(sorted(set(locations)))} 중 {rule_with_each}"
                 else:
+                    # 정규식 매치 실패 시 원래 규칙 사용
                     result_line = f"{group_locations(sorted(set(locations)))} 중 {rule}"
             else:
                 result_line = f"{group_locations(sorted(set(locations)))} 중 {rule}"
             
             consolidated_rules.append(result_line)
         
-        # 출력 준비
+         # 출력 준비
         if consolidated_rules:
             출력된_법률수 += 1
             prefix = chr(9312 + 출력된_법률수 - 1) if 출력된_법률수 <= 20 else f'({출력된_법률수})'
             
-            # 개정문에 줄바꿈 추가 및 리터럴/라이란 분리
+            # 제목 줄 추가 (줄바꿈 확실히 적용)
             amendment = f"{prefix} {law_name} 일부를 다음과 같이 개정한다.\n"
             
-            # 특수 케이스 확인: "A"를 "B"로와 "A라"를 "B라"로 또는 "A이라"를 "B라"로가 모두 있는 경우
-            # 이 경우 별도의 개정문으로 분리해야 함
+            # 특수 케이스 확인 (같은 단어의 "A라"를 "B라"로와 같은 규칙 분리 필요 시)
             has_ra_rule = any("라\"를" in rule for rule in consolidated_rules)
             has_ira_rule = any("이라\"를" in rule for rule in consolidated_rules)
             
-            # 각 규칙 앞에 줄바꿈 추가
+            # 각 규칙마다 새 줄에 추가
             for rule in consolidated_rules:
-                amendment += f"{rule}\n"
+                # 명시적으로 줄바꿈 추가 (줄바꿈 문자가 정확히 표시되도록)
+                amendment += rule + "\n"
             
             amendment_results.append(amendment)
         else:
