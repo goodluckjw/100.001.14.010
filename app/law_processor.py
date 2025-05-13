@@ -756,7 +756,7 @@ def run_amendment_logic(find_word, replace_word):
         print("주의: 일부 법률에서는 부칙에서만 검색어가 발견되어 제외되었습니다.")
 
     # 함수의 리턴문 (함수 마지막에 위치, 들여쓰기 주의)
-    return amendment_results if amendment_results else ["⚠️ 개정 대상 조문이 없습니다."] {
+    return amendment_results if amendment_results else ["⚠️ 개정 대상 조문이 없습니다."] 
         
                     # 목 내용 검색
                     for 목 in 호.findall("목"):
