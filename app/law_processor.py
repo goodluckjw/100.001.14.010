@@ -756,15 +756,8 @@ def run_amendment_logic(find_word, replace_word):
         print("주의: 일부 법률에서는 부칙에서만 검색어가 발견되어 제외되었습니다.")
 
     # 함수의 리턴문 (함수 마지막에 위치, 들여쓰기 주의)
-    return amendment_results if amendment_results else ["⚠️ 개정 대상 조문이 없습니다."] {조문식별자}{항번호_부분}제{호번호}호 호내용")  # 디버깅 추가
-                        tokens = re.findall(r'[가-힣A-Za-z0-9]+', 호내용)
-                        for token in tokens:
-                            if find_word in token:
-                                chunk, josa, suffix = extract_chunk_and_josa(token, find_word)
-                                replaced = chunk.replace(find_word, replace_word)
-                                location = f"{조문식별자}{항번호_부분}제{호번호}호"
-                                chunk_map[(chunk, replaced, josa, suffix)].append(location)
-
+    return amendment_results if amendment_results else ["⚠️ 개정 대상 조문이 없습니다."] {
+        
                     # 목 내용 검색
                     for 목 in 호.findall("목"):
                         목번호 = 목.findtext("목번호")
