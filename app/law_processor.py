@@ -595,13 +595,13 @@ def run_amendment_logic(find_word, replace_word):
             prefix = chr(9312 + 출력된_법률수 - 1) if 출력된_법률수 <= 20 else f'({출력된_법률수})'
             
             # HTML 형식으로 출력 (br 태그 사용)
-            amendment = f"{prefix} {law_name} 일부를 다음과 같이 개정한다.<br>"
+            amendment = f"{prefix} {law_name} 일부를 다음과 같이 개정한다.<br><br>"
             
             # 각 규칙마다 br 태그로 줄바꿈 추가
             for i, rule in enumerate(consolidated_rules):
                 amendment += rule
                 if i < len(consolidated_rules) - 1:  # 마지막 규칙이 아니면 줄바꿈 두 번
-                    amendment += "<br>"
+                    amendment += "<br><br>"
                 else:
                     amendment += "<br>"  # 마지막 규칙은 줄바꿈 한 번
             
