@@ -408,7 +408,6 @@ def group_locations(loc_list):
     
     return ""
 
-
 def run_search_logic(query, unit="법률"):
     """검색 로직 실행 함수"""
     result_dict = {}
@@ -543,20 +542,90 @@ def run_amendment_logic(find_word, replace_word):
                         location = f"{조문식별자}"
                         chunk_map[(chunk, replaced, josa, suffix)].append(location)
 
-            # 항 내용 검색 (이하 생략...)
-            # 항, 호, 목 검색 코드는 기존과 동일하게 유지
+            # 항 내용 검색
+            for 항 in article.findall("항"):
+                항번호 = normalize_number(항.findtext("항번호", "").strip())
+                항번호_부분 = f"제{항번호}항" if 항번호 else ""
+                
+                항내용 = 항.findtext("항내용", "") or ""
+                if find_word in 항내용:
+                    found_matches += 1
+                    if is_부칙:
+                        found_in_부칙 = True
+                        continue  # 부칙은 검색에서 제외
+                        
+                    print(f"매치 발견: {조문식별자}{항번호_부분} 항내용")
+                    tokens = re.findall(r'[가-힣A-Za-z0-9]+', 항내용)
+                    for token in tokens:
+                        if find_word in token:
+                            chunk, josa, suffix = extract_chunk_and_josa(token, find_word)
+                            replaced = chunk.replace(find_word, replace_word)
+                            location = f"{조문식별자}{항번호_부분}"
+                            chunk_map[(chunk, replaced, josa, suffix)].append(location)
+                
+                # 호 내용 검색
+                for 호 in 항.findall("호"):
+                    호번호 = 호.findtext("호번호")
+                    호내용 = 호.findtext("호내용", "") or ""
+                    if find_word in 호내용:
+                        found_matches += 1
+                        if is_부칙:
+                            found_in_부칙 = True
+                            continue  # 부칙은 검색에서 제외
+                            
+                        print(f"매치 발견: {조문식별자}{항번호_부분}제{호번호}호 호내용")
+                        tokens = re.findall(r'[가-힣A-Za-z0-9]+', 호내용)
+                        for token in tokens:
+                            if find_word in token:
+                                chunk, josa, suffix = extract_chunk_and_josa(token, find_word)
+                                replaced = chunk.replace(find_word, replace_word)
+                                location = f"{조문식별자}{항번호_부분}제{호번호}호"
+                                chunk_map[(chunk, replaced, josa, suffix)].append(location)
 
-        # 검색 결과 처리 후 개정문 생성 
+                    # 목 내용 검색
+                    for 목 in 호.findall("목"):
+                        목번호 = 목.findtext("목번호")
+                        for m in 목.findall("목내용"):
+                            if not m.text:
+                                continue
+                                
+                            if find_word in m.text:
+                                found_matches += 1
+                                if is_부칙:
+                                    found_in_부칙 = True
+                                    continue  # 부칙은 검색에서 제외
+                                    
+                                print(f"매치 발견: {조문식별자}{항번호_부분}제{호번호}호{목번호}목 목내용")
+                                줄들 = [line.strip() for line in m.text.splitlines() if line.strip()]
+                                for 줄 in 줄들:
+                                    if find_word in 줄:
+                                        tokens = re.findall(r'[가-힣A-Za-z0-9]+', 줄)
+                                        for token in tokens:
+                                            if find_word in token:
+                                                chunk, josa, suffix = extract_chunk_and_josa(token, find_word)
+                                                replaced = chunk.replace(find_word, replace_word)
+                                                location = f"{조문식별자}{항번호_부분}제{호번호}호{목번호}목"
+                                                chunk_map[(chunk, replaced, josa, suffix)].append(location)
+
+        # 검색 결과가 없으면 다음 법률로
         if not chunk_map:
             continue
         
+        # 디버깅을 위해 추출된 청크 정보 출력
+        print(f"추출된 청크 수: {len(chunk_map)}")
+        for (chunk, replaced, josa, suffix), locations in chunk_map.items():
+            print(f"청크: '{chunk}', 대체: '{replaced}', 조사: '{josa}', 접미사: '{suffix}', 위치 수: {len(locations)}")
+        
         # 같은 출력 형식을 가진 항목들을 그룹화
         rule_map = defaultdict(list)
+        
         for (chunk, replaced, josa, suffix), locations in chunk_map.items():
-            # 접미사 처리 - "로서"와 같은 특수 접미사 처리
-            # 규칙 15-2-1-1: A에 받침이 없고, B에 ㄹ받침이 있는 경우 접미사 특별 처리
+            # "로서" 같은 특수 접미사 처리 (규칙 15-2-1-1)
             if suffix == "로서" and not has_batchim(find_word) and has_rieul_batchim(replace_word):
-                # 특수 규칙에 따라 "A로서"를 "B로서"로 통합 (따로 처리하지 않음)
+                # A에 받침이 없고 B에 ㄹ받침이 있는 경우, 특수 규칙에 따라 "A"를 "B"로 한다로 통합
+                rule = apply_josa_rule(chunk, replaced, josa)
+            # "등", "등인", "등만" 등의 접미사는 일반 처리와 통합 (덩어리에서 무시)
+            elif suffix in ["등", "등인", "등만", "등의", "에게", "만", "만을", "만이", "만은", "만에", "만으로"]:
                 rule = apply_josa_rule(chunk, replaced, josa)
             elif suffix and suffix != "의":  # "의"는 개별 처리하지 않음
                 orig_with_suffix = chunk + suffix
@@ -565,13 +634,16 @@ def run_amendment_logic(find_word, replace_word):
             else:
                 rule = apply_josa_rule(chunk, replaced, josa)
                 
-            rule_map[rule].extend(sorted(set(locations)))
+            rule_map[rule].extend(locations)
         
         # 그룹화된 항목들을 정렬하여 출력
         consolidated_rules = []
         for rule, locations in rule_map.items():
+            # 중복 위치 제거 및 정렬
+            unique_locations = sorted(set(locations))
+            
             # 2개 이상의 위치가 있으면 '각각'을 추가
-            if len(locations) > 1 and "각각" not in rule:
+            if len(unique_locations) > 1 and "각각" not in rule:
                 # "A"를 "B"로 한다 -> "A"를 각각 "B"로 한다 형식으로 변경
                 parts = re.match(r'(".*?")(을|를) (".*?")(으로|로) 한다\.?', rule)
                 if parts:
@@ -580,12 +652,12 @@ def run_amendment_logic(find_word, replace_word):
                     replace = parts.group(3)
                     suffix = parts.group(4)
                     modified_rule = f'{orig}{article} 각각 {replace}{suffix} 한다.'
-                    result_line = f"{group_locations(sorted(set(locations)))} 중 {modified_rule}"
+                    result_line = f"{group_locations(unique_locations)} 중 {modified_rule}"
                 else:
                     # 정규식 매치 실패 시 원래 문자열 사용
-                    result_line = f"{group_locations(sorted(set(locations)))} 중 {rule}"
+                    result_line = f"{group_locations(unique_locations)} 중 {rule}"
             else:
-                result_line = f"{group_locations(sorted(set(locations)))} 중 {rule}"
+                result_line = f"{group_locations(unique_locations)} 중 {rule}"
             
             consolidated_rules.append(result_line)
         
@@ -609,5 +681,11 @@ def run_amendment_logic(find_word, replace_word):
         else:
             skipped_laws.append(f"{law_name}: 결과줄이 생성되지 않음")
 
+    # 디버깅 정보 출력
+    if skipped_laws:
+        print("---누락된 법률 목록---")
+        for law in skipped_laws:
+            print(law)
+        
     # 함수의 리턴문
     return amendment_results if amendment_results else ["⚠️ 개정 대상 조문이 없습니다."]
