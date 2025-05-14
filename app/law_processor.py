@@ -338,6 +338,7 @@ def format_location(location):
     # 호번호와 목번호 뒤의 period(.) 제거
     location = re.sub(r'(\d+)\.호', r'\1호', location)
     location = re.sub(r'([가-힣])\.목', r'\1목', location)
+    
     return location
 
 def group_locations(loc_list):
@@ -470,6 +471,7 @@ def run_search_logic(query, unit="법률"):
         if law_results:
             result_dict[law["법령명"]] = law_results
     return result_dict
+
 
 def run_amendment_logic(find_word, replace_word):
     """개정문 생성 로직"""
